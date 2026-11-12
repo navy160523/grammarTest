@@ -52,8 +52,11 @@ main { min-height: calc(100vh - 160px); padding-block: 32px 48px; }
 .section-title h2 { font-size: 1.3rem; letter-spacing: -.04em; }
 .section-title > span:not(.eyebrow) { color: var(--muted); font-size: .83rem; }
 .chapter-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 16px; }
-.chapter-card { display: flex; gap: 14px; align-items: center; min-height: 88px; width: 100%; text-align: left; padding: 16px; border: 1px solid var(--line); border-radius: 15px; background: var(--paper); }
-.chapter-card:hover { border-color: #ba7b6e; box-shadow: 0 4px 14px #3c26300d; }
+.chapter-tile { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; border: 1px solid var(--line); border-radius: 15px; background: var(--paper); }
+.chapter-tile:focus-within, .chapter-tile:hover { border-color: #ba7b6e; }
+.chapter-card { display: flex; gap: 14px; align-items: center; min-height: 88px; width: 100%; text-align: left; padding: 16px 10px 16px 16px; border: 0; border-radius: 15px; background: transparent; }
+.reset-chapter { min-height: 44px; margin-right: 10px; padding: 0 8px; border: 0; border-radius: 8px; background: transparent; color: var(--accent); font-size: .78rem; font-weight: 700; }
+.reset-chapter:hover:not(:disabled) { background: var(--accent-soft); }
 .chapter-number { display: grid; place-items: center; width: 47px; height: 47px; flex: 0 0 47px; border-radius: 11px; background: var(--accent-soft); color: var(--accent); font-weight: 800; }
 .chapter-copy { display: grid; gap: 5px; }
 .chapter-copy span { font-size: .81rem; color: var(--muted); }
@@ -112,6 +115,9 @@ progress::-moz-progress-bar { background: var(--accent); }
 .explanation p + h3 { margin-top: 16px; }
 .footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; padding-block: 20px 26px; border-top: 1px solid var(--line); color: var(--muted); font-size: .8rem; }
 .warning { background: var(--accent-soft); padding: 12px; border-radius: 8px; margin-bottom: 12px; }
+.account-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 16px; }
+.account-bar p { color: var(--muted); font-size: .84rem; line-height: 1.5; overflow-wrap: anywhere; }
+.account-bar strong { display: block; color: var(--ink); }
 @media (max-width: 850px) {
   .hero-art { opacity: .55; }
   .chapter-grid { grid-template-columns: repeat(2, 1fr); }
@@ -132,6 +138,8 @@ progress::-moz-progress-bar { background: var(--accent); }
   .chapters { margin-top: 25px; }
   .chapter-grid { gap: 8px; }
   .chapter-card { padding: 10px; gap: 8px; min-height: 72px; }
+  .chapter-tile { grid-template-columns: minmax(0, 1fr); }
+  .reset-chapter { justify-self: end; margin: 0 8px 4px; }
   .chapter-number { width: 32px; height: 35px; flex-basis: 32px; font-size: .83rem; }
   .chapter-copy strong { font-size: .86rem; }
   .chapter-copy span { font-size: .72rem; }

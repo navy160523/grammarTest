@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "firebase": "^13.3.0",
     "vue": "^3.5.45"
   },
   "devDependencies": {

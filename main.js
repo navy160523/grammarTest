@@ -1,5 +1,6 @@
-import { createApp, computed, nextTick, ref, watch } from 'vue/dist/vue.esm-bundler.js'
+import { createApp, computed, nextTick, ref } from 'vue/dist/vue.esm-bundler.js'
 import chapters from './questions.js'
+import { useProgressSync } from './progress-sync.js'
 import './style.css'
 
 if (import.meta.env.PROD && location.protocol !== 'file:' && 'serviceWorker' in navigator) {
@@ -9,30 +10,22 @@ if (import.meta.env.PROD && location.protocol !== 'file:' && 'serviceWorker' in 
   })
 }
 
-const storageKey = 'grammar-300-attempts-v1'
 const letters = 'ABCD'
 const label = index => String(index + 1).padStart(2, '0')
-
-function restore() {
-  try {
-    return JSON.parse(localStorage.getItem(storageKey)) || {}
-  } catch {
-    return {}
-  }
-}
+const emptyRecord = { draft: {}, cursor: 0, result: null }
 
 createApp({
   setup() {
-    const records = ref(restore())
     const view = ref('home')
     const chapter = ref(0)
     const current = ref(0)
     const filter = ref('all')
-    const storageError = ref(false)
     const heading = ref(null)
+    const sync = useProgressSync(() => show('home'))
+    const { records, ready, saveChapter } = sync
     const questions = computed(() => chapters[chapter.value])
     const question = computed(() => questions.value[current.value])
-    const record = computed(() => records.value[chapter.value])
+    const record = computed(() => records.value[chapter.value] || emptyRecord)
     const selected = computed(() => record.value?.draft[current.value])
     const answered = computed(() => Object.keys(record.value?.draft || {}).length)
     const completed = computed(() => Object.values(records.value).filter(entry => entry.result).length)
@@ -42,15 +35,6 @@ createApp({
         .map(item => ({ ...item, chapter: index, chosen: result.answers[item.number - 1] })) : []
     }))
     const filteredWrong = computed(() => wrong.value.filter(item => filter.value === 'all' || item.chapter === filter.value))
-
-    watch(records, value => {
-      try {
-        localStorage.setItem(storageKey, JSON.stringify(value))
-        storageError.value = false
-      } catch {
-        storageError.value = true
-      }
-    }, { deep: true })
 
     function focusHeading() {
       nextTick(() => {
@@ -66,19 +50,37 @@ createApp({
 
     function open(index) {
       chapter.value = index
-      records.value[index] ??= { draft: {}, cursor: 0, result: null }
       current.value = record.value.cursor
       show(record.value.result && !answered.value ? 'result' : 'quiz')
     }
 
+    function hasProgress(index) {
+      const entry = records.value[index]
+      return !!entry && (entry.cursor > 0 || !!entry.result || Object.keys(entry.draft).length > 0)
+    }
+
+    function resetChapter(index) {
+      if (!ready.value || !hasProgress(index)) return
+      if (!window.confirm('챕터 ' + label(index) + '의 답안, 채점 결과, 오답을 모두 초기화할까요?')) return
+      const resetRecord = { draft: {}, cursor: 0, result: null }
+      records.value[index] = resetRecord
+      saveChapter(index, resetRecord)
+    }
+
     function go(index) {
       current.value = index
-      record.value.cursor = index
+      updateRecord({ cursor: index })
       focusHeading()
     }
 
     function select(index) {
-      record.value.draft[current.value] = index
+      updateRecord({ draft: { ...record.value.draft, [current.value]: index } })
+    }
+
+    function updateRecord(changes) {
+      const nextRecord = { ...record.value, ...changes }
+      records.value[chapter.value] = nextRecord
+      saveChapter(chapter.value, nextRecord)
     }
 
     function submit() {
@@ -88,7 +90,7 @@ createApp({
       }
       const answers = { ...record.value.draft }
       const correct = questions.value.filter((item, index) => item.answer === answers[index]).length
-      Object.assign(record.value, { result: { answers, correct }, draft: {}, cursor: 0 })
+      updateRecord({ result: { answers, correct }, draft: {}, cursor: 0 })
       show('result')
     }
 
@@ -103,9 +105,9 @@ createApp({
     }
 
     return {
-      chapters, records, view, chapter, current, questions, question, record, selected, answered,
-      completed, wrong, filteredWrong, filter, storageError, heading, label, letters,
-      show, open, go, select, submit, review, retry,
+      ...sync, chapters, view, chapter, current, questions, question, record, selected, answered,
+      completed, wrong, filteredWrong, filter, heading, label, letters,
+      show, open, go, select, submit, review, retry, hasProgress, resetChapter,
     }
   },
   template: `
@@ -119,6 +121,11 @@ createApp({
       </div>
     </header>
     <main class="wrap">
+      <section v-if="canSignIn" class="account-bar" aria-label="풀이 기록 동기화">
+        <p role="status"><strong v-if="account">{{ account.displayName || account.email }}</strong>
+          {{ status || (account ? '계정 기록을 불러오는 중입니다.' : 'Google 계정으로 로그인하면 다른 기기에서 이어 풀 수 있습니다.') }}</p>
+        <button class="secondary" :disabled="busy" @click="toggleAccount">{{ account ? '로그아웃' : 'Google 로그인' }}</button>
+      </section>
       <p v-if="storageError" role="alert" class="warning">브라우저에 진도를 저장할 수 없습니다. 페이지를 닫으면 이번 풀이가 사라질 수 있습니다.</p>
       <template v-if="view === 'home'">
         <section class="hero">
@@ -133,7 +140,8 @@ createApp({
         <section class="chapters" aria-labelledby="chapter-list">
           <div class="section-title"><h2 id="chapter-list">챕터 선택</h2><span>10개 챕터 · 각 30문항</span></div>
           <div class="chapter-grid">
-            <button v-for="(_, index) in chapters" :key="index" class="chapter-card" @click="open(index)">
+            <div v-for="(_, index) in chapters" :key="index" class="chapter-tile">
+              <button class="chapter-card" :disabled="!ready" @click="open(index)">
               <span class="chapter-number">{{ label(index) }}</span>
               <span class="chapter-copy"><strong>챕터 {{ label(index) }}</strong>
                 <span v-if="records[index] && Object.keys(records[index].draft).length">{{ Object.keys(records[index].draft).length }} / 30문항 풀이 중</span>
@@ -141,7 +149,10 @@ createApp({
                 <span v-else>30문항</span>
               </span>
               <span class="arrow" aria-hidden="true">→</span>
-            </button>
+              </button>
+              <button class="reset-chapter" :disabled="!ready || !hasProgress(index)"
+                :aria-label="'챕터 ' + label(index) + ' 초기화'" @click="resetChapter(index)">초기화</button>
+            </div>
           </div>
         </section>
       </template>

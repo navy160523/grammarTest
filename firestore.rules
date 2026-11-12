@@ -1,0 +1,19 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{uid}/grammarProgress/{chapter} {
+      function owner() {
+        return request.auth != null && request.auth.uid == uid;
+      }
+      allow read: if owner();
+      allow create, update: if owner() && chapter.matches('^[0-9]$')
+        && request.resource.data.keys().hasAll(['draft', 'cursor', 'result'])
+        && request.resource.data.keys().hasOnly(['draft', 'cursor', 'result'])
+        && request.resource.data.draft is map
+        && request.resource.data.draft.size() <= 30
+        && request.resource.data.cursor is int
+        && request.resource.data.cursor >= 0 && request.resource.data.cursor < 30
+        && (request.resource.data.result == null || request.resource.data.result is map);
+    }
+  }
+}
