@@ -1,4 +1,4 @@
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 
 const topics = [
   { name: '명사', cover: 2, end: 6 },
@@ -20,6 +20,12 @@ export default {
     const page = ref(3)
     const zoom = ref(false)
     const viewport = ref(null)
+    const dialog = ref(null)
+    const fullScreenButton = ref(null)
+    const fullScreen = ref(false)
+    const contentsOpen = ref(false)
+    const contentsButton = ref(null)
+    let swipeStart = null
     const topic = computed(() => topics[topicIndex.value])
     const pages = computed(() => {
       const { cover, end } = topic.value
@@ -36,19 +42,72 @@ export default {
 
     watch(page, () => {
       zoom.value = false
-      if (viewport.value) viewport.value.scrollLeft = 0
+      viewport.value?.scrollTo(0, 0)
     })
 
     function move(step) {
-      const next = pages.value.findIndex(item => item.number === page.value) + step
-      if (page.value === 1) {
-        page.value = pages.value[0].number
-      } else if (pages.value[next]) {
-        page.value = pages.value[next].number
+      const next = page.value + step
+      if (next < 1 || next > 59) return
+      const nextTopic = topics.findIndex(item => item.cover <= next && next <= item.end)
+      if (nextTopic !== -1) topicIndex.value = nextTopic
+      page.value = next
+    }
+
+    function startSwipe(event) {
+      const touch = event.touches[0]
+      swipeStart = !zoom.value && event.touches.length === 1
+        ? { id: touch.identifier, x: touch.clientX, y: touch.clientY } : null
+    }
+
+    function cancelSwipe() {
+      swipeStart = null
+    }
+
+    function finishSwipe(event) {
+      const start = swipeStart
+      cancelSwipe()
+      if (!start || event.touches.length || zoom.value) return
+      const touch = Array.from(event.changedTouches).find(item => item.identifier === start.id)
+      if (!touch) return
+      const dx = touch.clientX - start.x
+      const dy = touch.clientY - start.y
+      if (Math.abs(dx) >= 50 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+        move(dx < 0 ? -1 : 1)
       }
     }
 
-    return { topics, topicIndex, topic, pages, page, selected, source, viewport, zoom, move }
+    async function toggleFullScreen() {
+      if (fullScreen.value) {
+        dialog.value.close()
+        return
+      }
+      fullScreen.value = true
+      await nextTick()
+      dialog.value.showModal()
+      fullScreenButton.value?.focus({ preventScroll: true })
+    }
+
+    async function leaveFullScreen() {
+      fullScreen.value = false
+      contentsOpen.value = false
+      await nextTick()
+      fullScreenButton.value?.focus({ preventScroll: true })
+    }
+
+    async function chooseTopic(index) {
+      topicIndex.value = index
+      page.value = topics[index].cover + 1
+      contentsOpen.value = false
+      await nextTick()
+      contentsButton.value?.focus({ preventScroll: true })
+    }
+
+    return {
+      topics, topicIndex, topic, pages, page, selected, source, viewport, zoom, move,
+      dialog, fullScreenButton, fullScreen, toggleFullScreen, leaveFullScreen,
+      startSwipe, cancelSwipe, finishSwipe,
+      contentsOpen, contentsButton, chooseTopic,
+    }
   },
   template: `
     <section class="guide">
@@ -65,19 +124,33 @@ export default {
         <button v-for="item in pages" :key="item.number" class="secondary"
           :aria-pressed="page === item.number" @click="page = item.number">{{ item.title }}</button>
       </div>
+      <dialog class="guide-fullscreen" ref="dialog" aria-label="문법 자료 전체 화면" @close="leaveFullScreen"></dialog>
+      <Teleport v-if="dialog" :to="dialog" :disabled="!fullScreen">
       <div class="panel guide-reader">
         <div class="guide-toolbar">
           <span aria-live="polite">{{ selected ? topic.name + ' · ' + selected.title : '자료 표지' }} · {{ page }} / 59</span>
-          <button class="secondary" :aria-pressed="zoom" @click="zoom = !zoom">{{ zoom ? '너비 맞춤' : '확대' }}</button>
+          <div class="guide-tools">
+            <button v-if="fullScreen" class="secondary" ref="contentsButton" :aria-expanded="contentsOpen"
+              aria-controls="guide-contents" @click="contentsOpen = !contentsOpen">목차</button>
+            <button class="secondary" :aria-pressed="zoom" @click="zoom = !zoom">{{ zoom ? '너비 맞춤' : '확대' }}</button>
+            <button class="secondary" ref="fullScreenButton" @click="toggleFullScreen">{{ fullScreen ? '전체 화면 닫기' : '전체 화면' }}</button>
+          </div>
+          <nav v-if="fullScreen" v-show="contentsOpen" id="guide-contents" class="guide-contents" aria-label="문법 주제 목차">
+            <button v-for="(item, index) in topics" :key="item.cover" class="secondary"
+              :aria-current="selected && index === topicIndex ? 'true' : undefined"
+              @click="chooseTopic(index)">{{ item.name }}</button>
+          </nav>
         </div>
-        <div class="guide-viewport" ref="viewport" :class="{zoomed: zoom}" :tabindex="zoom ? 0 : undefined" aria-label="자료 이미지">
+        <div class="guide-viewport" ref="viewport" :class="{zoomed: zoom}" :tabindex="zoom ? 0 : undefined" aria-label="자료 이미지"
+          @touchstart.passive="startSwipe" @touchend.passive="finishSwipe" @touchcancel="cancelSwipe">
           <img :key="page" :src="source" :alt="(selected ? topic.name + ' ' + selected.title : '자료 표지') + ', PDF ' + page + '쪽'" decoding="async">
         </div>
         <div class="guide-toolbar guide-footer">
-          <button class="secondary" :disabled="page === 1 || page === pages[0].number" @click="move(-1)">← 이전</button>
-          <button class="primary" :disabled="page === pages.at(-1).number" @click="move(1)">다음 →</button>
+          <button class="secondary" :disabled="page === 1" @click="move(-1)">← 이전</button>
+          <button class="primary" :disabled="page === 59" @click="move(1)">다음 →</button>
         </div>
       </div>
+      </Teleport>
     </section>
   `,
 }
