@@ -12,6 +12,8 @@ PWA는 HTTPS 또는 로컬 미리보기에서 동작합니다. 브라우저의 �
 
 배포할 때는 `dist/` 전체를 같은 경로에 올립니다.
 
+GitHub Pages에서는 저장소 **Settings → Pages → Source**를 **GitHub Actions**로 설정합니다. 이후 `main`에 푸시하면 워크플로가 빌드하고 `dist/`를 배포합니다. 처음 설정할 때는 **Actions → Deploy to GitHub Pages → Run workflow**에서 직접 실행할 수 있습니다.
+
 ## Firebase 기록 동기화
 
 Firebase 프로젝트 `grammartest-4331c`에 Cloud Firestore 기본 데이터베이스가 있어야 합니다. Firebase Authentication에서 Google 로그인 제공업체를 켜고, 앱을 여는 호스트를 승인된 도메인에 추가합니다. 예를 들어 GitHub Pages 주소가 `https://navy160523.github.io/grammarTest/`라면 `navy160523.github.io`를 추가합니다.
