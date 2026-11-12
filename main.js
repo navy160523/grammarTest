@@ -1,5 +1,6 @@
 import { createApp, computed, nextTick, ref } from 'vue/dist/vue.esm-bundler.js'
 import chapters from './questions.js'
+import GrammarGuide from './grammar-guide.js'
 import { useProgressSync } from './progress-sync.js'
 import './style.css'
 
@@ -15,6 +16,7 @@ const label = index => String(index + 1).padStart(2, '0')
 const emptyRecord = { draft: {}, cursor: 0, result: null }
 
 createApp({
+  components: { GrammarGuide },
   setup() {
     const view = ref('home')
     const chapter = ref(0)
@@ -115,7 +117,8 @@ createApp({
       <div class="wrap header-inner">
         <button class="brand" @click="show('home')" aria-label="문법 300제 홈"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M4 5.5h5a3 3 0 0 1 3 3v11a4 4 0 0 0-3-1.5H4zM20 5.5h-5a3 3 0 0 0-3 3v11a4 4 0 0 1 3-1.5h5z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></span> 문법 300제</button>
         <nav aria-label="주 메뉴">
-          <button :class="{active: view !== 'review'}" @click="show('home')">문제 풀기</button>
+          <button :class="{active: ['home', 'quiz', 'result'].includes(view)}" @click="show('home')">문제 풀기</button>
+          <button :class="{active: view === 'guide'}" @click="show('guide')">문법 정리</button>
           <button :class="{active: view === 'review'}" @click="review()">오답노트 <span v-if="wrong.length" class="count">{{ wrong.length }}</span></button>
         </nav>
       </div>
@@ -198,6 +201,7 @@ createApp({
           </div>
         </section>
       </template>
+      <GrammarGuide v-else-if="view === 'guide'" />
       <template v-else>
         <div class="review-header">
           <div><h1 ref="heading" tabindex="-1">오답노트</h1><p>최근 제출한 챕터별 오답을 문제와 해설로 다시 확인하세요.</p></div>

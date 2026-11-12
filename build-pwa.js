@@ -3,12 +3,14 @@ import { readFile, readdir, writeFile } from 'node:fs/promises'
 
 const output = new URL('./dist/', import.meta.url)
 const assets = await readdir(new URL('assets/', output))
+const slides = await readdir(new URL('grammar-slides/', output))
 const files = [
   'index.html',
   'manifest.webmanifest',
   'icon-192.png',
   'icon-512.png',
   ...assets.sort().map(name => 'assets/' + name),
+  ...slides.sort().map(name => 'grammar-slides/' + name),
 ]
 const worker = await readFile(new URL('./service-worker.js', import.meta.url), 'utf8')
 const hash = createHash('sha256').update(worker)
