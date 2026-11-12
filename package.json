@@ -10,7 +10,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
-    "build": "vite build --base ./",
+    "build": "vite build --base ./ && node build-pwa.js",
     "preview": "vite preview --host 127.0.0.1"
   },
   "private": true

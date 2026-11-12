@@ -2,6 +2,13 @@ import { createApp, computed, nextTick, ref, watch } from 'vue/dist/vue.esm-bund
 import chapters from './questions.js'
 import './style.css'
 
+if (import.meta.env.PROD && location.protocol !== 'file:' && 'serviceWorker' in navigator) {
+  const workerUrl = new URL(/* @vite-ignore */ '../sw.js', import.meta.url)
+  navigator.serviceWorker.register(workerUrl.href).catch(error => {
+    console.warn('오프라인 사용 준비에 실패했습니다.', error)
+  })
+}
+
 const storageKey = 'grammar-300-attempts-v1'
 const letters = 'ABCD'
 const label = index => String(index + 1).padStart(2, '0')
